@@ -1,16 +1,20 @@
 import { useEffect, useReducer } from "react";
 import "./App.css";
-import Header from "./Header";
-import Main from "./Main";
-import Loader from "./Loader";
-import Error from "./Error";
-import StartScreen from "./StartScreen";
-import Question from "./Question";
+import Header from "./components/Header";
+import Main from "./components/Main";
+import Loader from "./components/Loader";
+import Error from "./components/Error";
+import StartScreen from "./components/StartScreen";
+import Question from "./components/Question";
+import NextButton from "./components/NextButton";
 
 function App() {
   const initialState = {
     questions: [],
     status: "loading",
+    index: 0,
+    answer: null,
+    points: 0,
   };
 
   const reducer = (state, action) => {
@@ -29,25 +33,41 @@ function App() {
       case "start":
         return {
           ...state,
-          status: "start",
+          status: "active",
+        };
+      case "newAnswer":
+        const question = state.questions.at(state.index);
+        return {
+          ...state,
+          answer: action.payload,
+          points:
+            action.payload === question.correctOption
+              ? state.points + question.points
+              : state.points,
+        };
+      case "nextQuestion":
+        return {
+          ...state,
+          status: "active",
+          index: state.index + 1,
+          answer: null,
         };
       default:
         throw new Error("Action unknown");
     }
   };
 
-  const [{ questions, status }, dispatch] = useReducer(reducer, initialState);
+  const [{ questions, status, index, answer }, dispatch] = useReducer(
+    reducer,
+    initialState
+  );
 
   const numQuestions = questions.length;
 
   useEffect(() => {
     fetch("http://localhost:8000/questions")
-      .then((res) => {
-        res.json();
-      })
-      .then((data) => {
-        dispatch({ type: "dataReceived", payload: data });
-      })
+      .then((res) => res.json())
+      .then((data) => dispatch({ type: "dataReceived", payload: data }))
       .catch((error) => {
         dispatch({ type: "dataFailed" });
       });
@@ -61,7 +81,16 @@ function App() {
         {status === "ready" && (
           <StartScreen numQuestions={numQuestions} dispatch={dispatch} />
         )}
-        {status === "active" && <Question />}
+        {status === "active" && (
+          <>
+            <Question
+              dispatch={dispatch}
+              answer={answer}
+              question={questions[index]}
+            />
+            <NextButton dispatch={dispatch} answer={answer} />
+          </>
+        )}
         {status === "error" && <Error />}
       </Main>
     </div>
